@@ -51,7 +51,7 @@ python3 tools/verify_catalog.py
 
 The builder extracts metadata, creates organized publication copies in `books/`, removes app-generated private metadata, and regenerates the JSON, browser data, CSV, shelf lists, and checksums. The original EPUB folder is preserved.
 
-The finder is a static HTML/CSS/JavaScript site in `docs/`. GitHub Pages serves that small directory; EPUB files are downloaded individually from the repository.
+The finder is a static HTML/CSS/JavaScript site in `docs/`. GitHub Pages serves a lightweight `gh-pages` branch generated from that directory; EPUB files are downloaded individually from the main repository.
 
 ## Rights and corrections
 
