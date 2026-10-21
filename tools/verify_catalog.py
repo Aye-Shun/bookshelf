@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
-"""Validate the catalog, publication files, and EPUB archive integrity."""
-import collections, csv, hashlib, json, zipfile
+"""Validate the catalog, publication files, and EPUB archive integrity and PDF readability."""
+import collections, csv, hashlib, json, zipfile, subprocess, shutil
 from pathlib import Path
 import xml.etree.ElementTree as ET
 from urllib.parse import unquote
@@ -10,7 +10,7 @@ catalog=json.loads((root/'docs/catalog.json').read_text())
 books=catalog['books']
 assert len(books)==catalog['count']
 assert len({b['id'] for b in books})==len(books)
-assert {b['path'] for b in books}=={p.relative_to(root).as_posix() for p in (root/'books').rglob('*.epub')}
+assert {b['path'] for b in books}=={p.relative_to(root).as_posix() for p in (root/'books').rglob('*') if p.is_file() and p.suffix.lower() in {'.epub','.pdf'}}
 assert sum(b['bytes'] for b in books)==catalog['totalBytes']
 counts=collections.Counter(b['category'] for b in books)
 for category in catalog['categories']:assert category['count']==counts[category['id']]
@@ -22,6 +22,11 @@ for i,b in enumerate(books,1):
  assert b['bytes']<100*1024**2
  assert hashlib.sha256(p.read_bytes()).hexdigest()==b['sha256']
  assert b['downloadUrl'].endswith('/'+b['path'])
+ if p.suffix.lower()=='.pdf':
+  assert p.read_bytes().lstrip().startswith(b'%PDF-')
+  if shutil.which('pdfinfo'):
+   assert subprocess.run(['pdfinfo',str(p)],capture_output=True).returncode==0,p
+  continue
  with zipfile.ZipFile(p) as z:
   assert z.testzip() is None,p
   assert z.infolist()[0].filename=='mimetype'
@@ -31,5 +36,5 @@ for i,b in enumerate(books,1):
   c=ET.fromstring(z.read('META-INF/container.xml'))
   opf=next(e.attrib['full-path'] for e in c.iter() if e.tag.endswith('rootfile'))
   ET.fromstring(z.read(opf))
- if i%200==0:print(f'Verified {i}/{len(books)} EPUBs',flush=True)
-print(f'PASS: {len(books)} EPUBs; checksums, ZIP integrity, metadata, catalog counts, and publication paths verified.')
+ if i%200==0:print(f'Verified {i}/{len(books)} book files',flush=True)
+print(f'PASS: {len(books)} book files; checksums, ZIP integrity, metadata, catalog counts, and publication paths verified.')

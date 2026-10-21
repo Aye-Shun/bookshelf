@@ -1,1 +1,3 @@
 *.epub binary -delta
+
+*.pdf binary -delta

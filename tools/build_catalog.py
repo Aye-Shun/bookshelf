@@ -3,6 +3,7 @@
 import argparse, collections, csv, hashlib, json, re, shutil, unicodedata, zipfile
 from pathlib import Path
 import xml.etree.ElementTree as ET
+from datetime import date
 
 ROOT = Path(__file__).resolve().parents[1]
 DC = '{http://purl.org/dc/elements/1.1/}'
@@ -15,6 +16,11 @@ CATEGORIES = [
  ('historical', 'Historical', {'historical'}),
  ('fantasy-adventure', 'Fantasy & Adventure', {'fantasy','adventure','action','supernatural'}),
  ('everyday-comedy', 'Everyday & Comedy', {'slice of life','school life','comedy','sports','cooking','drama'}),
+ ('philosophy', 'Philosophy', {'philosophy','ethics','logic'}),
+ ('programming-technology', 'Programming & Technology', {'programming','computer science','computers','technology'}),
+ ('language-learning', 'Language Learning', {'language learning','linguistics'}),
+ ('science-nonfiction', 'Science & Nonfiction', {'science','nonfiction','non-fiction','history','biography'}),
+ ('literature', 'Literature & Classics', {'fiction','literature','poetry','classics','plays'}),
  ('unclassified', 'Other / Unclassified', set()),
 ]
 
@@ -110,22 +116,25 @@ def main():
  known={b['path'] for b in entries}
  for old in (ROOT/'books').rglob('*.epub'):
   if old.relative_to(ROOT).as_posix() not in known:old.unlink()
+ write_catalog(entries,args.repo)
+
+def write_catalog(entries,repo):
  counts=collections.Counter(b['category'] for b in entries)
- data={'updated':'2026-10-19','repo':args.repo,'count':len(entries),'totalBytes':sum(b['bytes'] for b in entries),'categories':[{'id':k,'label':l,'count':counts[k]} for k,l,_ in CATEGORIES], 'books':entries}
+ data={'updated':date.today().isoformat(),'repo':repo,'count':len(entries),'totalBytes':sum(b['bytes'] for b in entries),'categories':[{'id':k,'label':l,'count':counts[k]} for k,l,_ in CATEGORIES], 'books':entries}
  (ROOT/'docs').mkdir(exist_ok=True)
  (ROOT/'docs/catalog.json').write_text(json.dumps(data,ensure_ascii=False,indent=2)+'\n')
  # JS data permits opening the finder directly from disk without a server.
  (ROOT/'docs/catalog-data.js').write_text('window.BOOK_CATALOG = '+json.dumps(data,ensure_ascii=False).replace('</','<\\/')+';\n')
  with (ROOT/'catalog.csv').open('w',newline='') as f:
-  writer=csv.writer(f);writer.writerow(['Title','Author','Category','Tags','Language','Original filename','Bytes','Download URL','SHA-256'])
-  for b in entries:writer.writerow([b['title'],'; '.join(b['authors']),b['categoryLabel'],'; '.join(b['tags']),b['language'],b['originalFile'],b['bytes'],b['downloadUrl'],b['sha256']])
+  writer=csv.writer(f,lineterminator="\n");writer.writerow(['Title','Author','Category','Tags','Language','Format','Source','Original filename','Bytes','Download URL','SHA-256'])
+  for b in entries:writer.writerow([b['title'],'; '.join(b['authors']),b['categoryLabel'],'; '.join(b['tags']),b['language'],b.get('format','EPUB'),b.get('source','Original collection'),b['originalFile'],b['bytes'],b['downloadUrl'],b['sha256']])
  (ROOT/'SHA256SUMS').write_text(''.join(f"{b['sha256']}  {b['path']}\n" for b in entries))
  (ROOT/'catalog').mkdir(exist_ok=True)
  def md(s):return s.replace('|','\\|').replace('[','\\[').replace(']','\\]')
  for key,label,_ in CATEGORIES:
   group=sorted((b for b in entries if b['category']==key),key=lambda b:b['title'].casefold())
-  lines=[f'# {label}', '',f'{len(group):,} EPUB files. [Open the searchable finder](https://{args.repo.split("/")[0]}.github.io/{args.repo.split("/")[1]}/?category={key}) · [Back to README](../README.md)', '', '| Title | Author | EPUB |', '| --- | --- | --- |']
-  for b in group:lines.append(f"| {md(b['title'])} | {md('; '.join(b['authors']))} | [Download · {b['bytes']/1e6:.1f} MB]({b['downloadUrl']}) |")
+  lines=[f'# {label}', '',f'{len(group):,} book files. [Open the searchable finder](https://{repo.split("/")[0]}.github.io/{repo.split("/")[1]}/?category={key}) · [Back to README](../README.md)', '', '| Title | Author | Download |', '| --- | --- | --- |']
+  for b in group:lines.append(f"| {md(b['title'])} | {md('; '.join(b['authors']))} | [{b.get('format','EPUB')} · {b['bytes']/1e6:.1f} MB]({b['downloadUrl']}) |")
   (ROOT/f'catalog/{key}.md').write_text('\n'.join(lines)+'\n')
  print(json.dumps({'books':data['count'],'bytes':data['totalBytes'],'categories':data['categories']}))
 
