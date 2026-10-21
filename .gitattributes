@@ -1,3 +1,4 @@
 *.epub binary -delta
 
 *.pdf binary -delta
+*.azw3 binary -delta

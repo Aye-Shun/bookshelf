@@ -10,7 +10,7 @@ catalog=json.loads((root/'docs/catalog.json').read_text())
 books=catalog['books']
 assert len(books)==catalog['count']
 assert len({b['id'] for b in books})==len(books)
-assert {b['path'] for b in books}=={p.relative_to(root).as_posix() for p in (root/'books').rglob('*') if p.is_file() and p.suffix.lower() in {'.epub','.pdf'}}
+assert {b['path'] for b in books}=={p.relative_to(root).as_posix() for p in (root/'books').rglob('*') if p.is_file() and p.suffix.lower() in {'.epub','.pdf','.azw3'}}
 assert sum(b['bytes'] for b in books)==catalog['totalBytes']
 counts=collections.Counter(b['category'] for b in books)
 for category in catalog['categories']:assert category['count']==counts[category['id']]
@@ -22,6 +22,9 @@ for i,b in enumerate(books,1):
  assert b['bytes']<100*1024**2
  assert hashlib.sha256(p.read_bytes()).hexdigest()==b['sha256']
  assert b['downloadUrl'].endswith('/'+b['path'])
+ if p.suffix.lower()=='.azw3':
+  assert p.read_bytes()[60:68]==b'BOOKMOBI'
+  continue
  if p.suffix.lower()=='.pdf':
   assert p.read_bytes().lstrip().startswith(b'%PDF-')
   if shutil.which('pdfinfo'):
